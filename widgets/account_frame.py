@@ -49,8 +49,6 @@ class AccountFrame(tk.Frame):
         self.entry_first_name = tk.Entry(form_frame, font=("Arial", 12), width=25)
         self.entry_first_name.grid(row=0, column=1, padx=10, pady=10)
 
-        # Add more fields as needed...
-
         register_btn = tk.Button(
             form_frame,
             text="Register",
