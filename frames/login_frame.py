@@ -32,7 +32,6 @@ class LoginFrame(tk.Frame):
         login_button = tk.Button(mid_frame, text="Login", font=("Arial", 12), bg="#4682B4", fg="white", command=self.login_professor)
         login_button.pack(pady=10, ipadx=12)
 
-        # Use the parent's show_register_frame method
         create_account_button = tk.Button(
             mid_frame,
             text="Create Account",
@@ -56,6 +55,6 @@ class LoginFrame(tk.Frame):
 
         if professor and professor[1] == password:
             messagebox.showinfo("Success", "Login successful!")
-            self.parent.show_dashboard()  # Call the show_dashboard method
+            self.parent.show_dashboard()
         else:
             messagebox.showerror("Error", "Invalid username or password.")
