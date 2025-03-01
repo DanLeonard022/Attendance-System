@@ -14,7 +14,7 @@ class PasswordToggle:
             command=self.toggle_password,
             bg="lightgray"
         )
-        self.password_checkbox.pack(pady=5)  # The Checkbutton is packed here
+        self.password_checkbox.pack(pady=5)
 
     def toggle_password(self):
         if self.password_checkbox_var.get():
