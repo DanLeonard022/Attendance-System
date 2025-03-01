@@ -20,8 +20,7 @@ class AMSApp(tk.Tk):
 
         self.db = Database()
         self.db.setup_database()
-
-        # Initialize frames
+        
         self.register_frame = RegisterFrame(self, self.db)  # Create register_frame first
         self.login_frame = LoginFrame(self, self.db)       # Pass register_frame to LoginFrame
         self.dashboard_frame = DashboardFrame(self, self.db)
