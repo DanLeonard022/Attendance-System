@@ -26,7 +26,6 @@ class LoginFrame(tk.Frame):
         self.password_entry_log = tk.Entry(mid_frame, font=("Arial", 12), width=30, show="*", bd=2)
         self.password_entry_log.pack(pady=5, ipady=5)
 
-        # Create the PasswordToggle widget (no need to call pack on it)
         self.password_toggle = PasswordToggle(mid_frame, self.password_entry_log)
 
         login_button = tk.Button(mid_frame, text="Login", font=("Arial", 12), bg="#4682B4", fg="white", command=self.login_professor)
