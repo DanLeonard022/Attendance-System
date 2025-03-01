@@ -43,8 +43,6 @@ class AccountFrame(tk.Frame):
         form_frame = tk.Frame(self, bg="white", bd=2, relief=tk.SUNKEN)
         form_frame.pack(padx=20, pady=20, fill="both", expand=False)
 
-        # Add form fields (first name, last name, email, etc.)
-        # Example:
         tk.Label(form_frame, text="First Name:", font=("Arial", 12), bg="white").grid(row=0, column=0, padx=10, pady=10, sticky="e")
         self.entry_first_name = tk.Entry(form_frame, font=("Arial", 12), width=25)
         self.entry_first_name.grid(row=0, column=1, padx=10, pady=10)
@@ -71,7 +69,6 @@ class AccountFrame(tk.Frame):
 
     def register_account(self):
         first_name = self.entry_first_name.get().strip()
-        # Add logic to register account in the database
         if not first_name:
             messagebox.showerror("Input Error", "Please fill in all fields.")
             return
