@@ -37,7 +37,7 @@ class LoginFrame(tk.Frame):
             font=("Arial", 12),
             bg="#4682B4",
             fg="white",
-            command=self.parent.show_register_frame  # Use the method here
+            command=self.parent.show_register_frame
         )
         create_account_button.pack(pady=10)
 
@@ -54,6 +54,8 @@ class LoginFrame(tk.Frame):
 
         if professor and professor[1] == password:
             messagebox.showinfo("Success", "Login successful!")
+            self.parent.current_professor = username  # Set the current professor
+            print(f"Logged in as: {self.parent.current_professor}")  # Debug print
             self.parent.show_dashboard()
         else:
             messagebox.showerror("Error", "Invalid username or password.")
