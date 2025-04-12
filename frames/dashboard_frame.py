@@ -6,10 +6,11 @@ import datetime
 from email_handler import EmailHandler
 
 class DashboardFrame(tk.Frame):
-    def __init__(self, parent, db):
+    def __init__(self, parent, db, current_professor):
         super().__init__(parent, bg="white")
         self.db = db
         self.parent = parent
+        self.current_professor = current_professor
 
         # Initialize EmailHandler
         self.email_handler = EmailHandler(
@@ -28,7 +29,7 @@ class DashboardFrame(tk.Frame):
         menu_buttons_frame = tk.Frame(self.left_frame, bg="lightgray")
         menu_buttons_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        dashboard_button = tk.Button(menu_buttons_frame, text="DASHBOARD", font=("Arial", 12), bg="white", command=self.show_dashboard_screen)
+        dashboard_button = tk.Button(menu_buttons_frame, text="ATTENDANCE LOG", font=("Arial", 12), bg="white", command=self.show_dashboard_screen)
         dashboard_button.pack(fill="x", pady=10)
 
         records_button = tk.Button(menu_buttons_frame, text="VIEW/ADD RECORDS", font=("Arial", 12), bg="white", command=self.show_records_screen)
@@ -46,19 +47,47 @@ class DashboardFrame(tk.Frame):
         self.right_frame = tk.Frame(self, bg="lightgray", width=600, relief=tk.SUNKEN, bd=2)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.show_dashboard_screen();
+        self.show_dashboard_screen()
 
     def show_dashboard_screen(self):
+        self.right_frame.unbind_all("<MouseWheel>")
         self.clear_right_frame()
-        dashboard_label = tk.Label(self.right_frame, text="DASHBOARD", font=("Helvetica", 18, "bold"), bg="#4682B4", fg="white")
-        dashboard_label.pack(pady=10)
-        first_text_label = tk.Label(self.right_frame, text="Welcome to the Dashboard!", font=("Helvetica", 20), bg="lightgray", wraplength=400)
-        first_text_label.pack(anchor="center", padx=10, pady=10)
+
+        dashboard_label = tk.Label(self.right_frame, text="ATTENDANCE LOG", font=("Helvetica", 20, "bold"), bg="#4682B4", fg="white")
+        dashboard_label.pack(pady=20)
+        
+        top_frame = tk.Frame(self.right_frame, height=100, bg="lightgray")
+        top_frame.pack(fill="x", side="top")
+
+        self.attendance_running = False  
+        self.attendance_thread = None  
+
+        start_button = tk.Button(top_frame, text="Start Attendance",bg="#4682B4", fg="white", command="", width=14)
+        start_button.pack(side="left", padx=20, ipady=2)
+
+        stop_button = tk.Button(top_frame, text="Stop Attendance",bg="#4682B4", fg="white", command="", width=14)
+        stop_button.pack(side="left", expand=True, ipady=2)
+
+        tree = ttk.Treeview(self.right_frame, columns=("Student ID", "Time In"), show="headings")
+        tree.heading("Student ID", text="Student ID")
+        tree.heading("Time In", text="Time In")
+        tree.pack(pady=10, fill="both", expand=True)
+        
 
     def show_records_screen(self):
         self.right_frame.unbind_all("<MouseWheel>")
         self.clear_right_frame()
 
+        # Use the professor_students table to filter students by the logged-in professor
+        self.db.cursor.execute('''
+            SELECT s.student_id, s.name, s.course, s.year_level 
+            FROM students s
+            JOIN professor_students ps ON s.student_id = ps.student_id
+            WHERE ps.professor_id = ?
+        ''', (self.current_professor,))
+        students = self.db.cursor.fetchall()
+        
+        # Display the students in the GUI
         records_label = tk.Label(self.right_frame, text="VIEW/ADD RECORDS", 
                                 font=("Helvetica", 20, "bold"), bg="#4682B4", fg="white")
         records_label.pack(pady=10)
@@ -114,7 +143,7 @@ class DashboardFrame(tk.Frame):
 
         canvas.bind_all("<MouseWheel>", on_mouse_wheel)
         def on_mouse_wheel(event):
-            if canvas.winfo_exists():  # Check if canvas still exists
+            if canvas.winfo_exists():
                 canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
         
@@ -152,7 +181,7 @@ class DashboardFrame(tk.Frame):
             add_section_button.config(command=lambda yf=year_frame, ab=add_section_button: self.add_section(yf, ab))
             add_section_button.pack(pady=5, ipadx=200, ipady=5)
 
-
+    
     def add_section(self, year_frame, add_button):
         
         entry_frame = tk.Frame(year_frame, bg="lightgray")
@@ -177,30 +206,41 @@ class DashboardFrame(tk.Frame):
 
         subjects_label = tk.Label(self.right_frame, text="SUBJECTS", font=("Helvetica", 18, "bold"), bg="#4682B4", fg="white", width=13)
         subjects_label.place(x=30, y=30, anchor="nw")
-        
+
         section_name_label = tk.Label(self.right_frame, text=section_names, font=("Helvetica", 18, "bold"), bg="#4682B4", fg="white", width=31)
         section_name_label.place(relx=1.0, x=-40, y=30, anchor="ne")
-        
+
         sublist_frame = tk.Frame(self.right_frame, bg="lightgray", width=700, height=350, relief=tk.SUNKEN, bd=2)
         sublist_frame.place(relx=0.5, rely=0.5, anchor="center")
         sublist_frame.pack_propagate(False)
 
-
         subjects = [
-            ("CAPSTONE 1", "BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY"),
+            ("CAPSTONE 01", "BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY"),
             ("CISCO 02", "BACHELOR OF SCIENCE IN COMPUTER SCIENCE"),
-            ("INFORMATION ASSURANCE AND SECURITY", "BACHELOR OF SCIENCE IN INFORMATION SYSTEM"),
-            ("INTEGRATIVE PROGRAMMING AND TECHNOLOGIES", "BACHELOR OF SCIENCE IN INFORMATION SYSTEM"),
+            ("IAS 01", "BACHELOR OF SCIENCE IN INFORMATION SYSTEM"),
+            ("IPT 01", "BACHELOR OF SCIENCE IN INFORMATION SYSTEM"),
         ]
 
         for subject, program in subjects:
-            tk.Button(sublist_frame, text=subject, 
-                    font=("Arial", 14), bg="#4682B4", fg="white", width=54, 
-                    command=lambda p=program: self.yearlevel_and_section_frame(p)
+            tk.Button(
+                sublist_frame,
+                text=subject,
+                font=("Arial", 14),
+                bg="#4682B4",
+                fg="white",
+                width=54,
+                command=lambda s=subject: self.parent.show_attendanceList(section_names, s, course_name)  # Pass course_name
             ).pack(pady=15, ipady=7)
 
-        back_button = tk.Button(self.right_frame, text="Back", font=("Arial", 14), bg="#4682B4", fg="white", width=10,
-                                command=lambda: self.yearlevel_and_section_frame(course_name))
+        back_button = tk.Button(
+            self.right_frame,
+            text="Back",
+            font=("Arial", 14),
+            bg="#4682B4",
+            fg="white",
+            width=10,
+            command=lambda: self.yearlevel_and_section_frame(course_name)  # Navigate back to yearlevel_and_section_frame
+        )
         back_button.place(x=20, rely=1.0, y=-50, anchor="sw")
 
 
@@ -361,139 +401,13 @@ class DashboardFrame(tk.Frame):
         self.clear_right_frame()
         account_label = tk.Label(self.right_frame, text="ACCOUNT", font=("Helvetica", 18, "bold"), bg="lightgray")
         account_label.pack(pady=10)
-        register_account_button = tk.Button(self.right_frame, text="Register Account", font=("Arial", 12), bg="#4682B4", fg="white", command=self.show_register_account_form)
-        register_account_button.pack(pady=10)
-        delete_account_button = tk.Button(self.right_frame, text="Delete Account", font=("Arial", 12), bg="#4682B4", fg="white", command=self.delete_account)
-        delete_account_button.pack(pady=10)
     
-    def show_register_account_form(self):
-        self.clear_right_frame()
-        title_label = tk.Label(self.right_frame, text="REGISTER YOUR ACCOUNT", font=("Helvetica", 18, "bold"), bg="lightgray")
-        title_label.pack(pady=10)
-
-        form_frame = tk.Frame(self.right_frame, bg="white", bd=2, relief=tk.SUNKEN)
-        form_frame.pack(padx=20, pady=20, fill="both", expand=False)
-
-        # First Name
-        tk.Label(form_frame, text="First Name:", font=("Arial", 12), bg="white")\
-            .grid(row=0, column=0, padx=10, pady=10, sticky="e")
-        entry_first_name = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_first_name.grid(row=0, column=1, padx=10, pady=10)
-
-        # Middle Name
-        tk.Label(form_frame, text="Middle Name (Optional):", font=("Arial", 12), bg="white")\
-            .grid(row=1, column=0, padx=10, pady=10, sticky="e")
-        entry_middle_name = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_middle_name.grid(row=1, column=1, padx=10, pady=10)
-
-        # Last Name
-        tk.Label(form_frame, text="Last Name:", font=("Arial", 12), bg="white")\
-            .grid(row=2, column=0, padx=10, pady=10, sticky="e")
-        entry_last_name = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_last_name.grid(row=2, column=1, padx=10, pady=10)
-
-        # Suffix
-        tk.Label(form_frame, text="Suffix:", font=("Arial", 12), bg="white")\
-            .grid(row=3, column=0, padx=10, pady=10, sticky="e")
-        entry_suffix = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_suffix.grid(row=3, column=1, padx=10, pady=10)
-
-        # Age
-        tk.Label(form_frame, text="Age:", font=("Arial", 12), bg="white")\
-            .grid(row=4, column=0, padx=10, pady=10, sticky="e")
-        entry_age = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_age.grid(row=4, column=1, padx=10, pady=10)
-
-        # Birthdate
-        tk.Label(form_frame, text="Birthdate:", font=("Arial", 12), bg="white")\
-            .grid(row=5, column=0, padx=10, pady=10, sticky="e")
-        entry_birthdate = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_birthdate.grid(row=5, column=1, padx=10, pady=10)
-
-        # Email
-        tk.Label(form_frame, text="Email:", font=("Arial", 12), bg="white")\
-            .grid(row=6, column=0, padx=10, pady=10, sticky="e")
-        entry_email = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_email.grid(row=6, column=1, padx=10, pady=10)
-
-        # Cell Number
-        tk.Label(form_frame, text="Cell Number:", font=("Arial", 12), bg="white")\
-            .grid(row=7, column=0, padx=10, pady=10, sticky="e")
-        entry_cell = tk.Entry(form_frame, font=("Arial", 12), width=25)
-        entry_cell.grid(row=7, column=1, padx=10, pady=10)
-
-        # Fingerprint
-        fingerprint_label = tk.Label(form_frame, text="Fingerprint Status: Not Scanned", 
-                                     font=("Arial", 10), fg="red", bg="white")
-        fingerprint_label.grid(row=8, column=0, columnspan=2, pady=10)
-
-        def scan_fingerprint_account():
-            fingerprint_label.config(text="Fingerprint Status: Scanning...", fg="blue")
-            fingerprint_label.after(2000, lambda: fingerprint_label.config(text="Fingerprint Status: Scanned Successfully", fg="green"))
-
-        scan_btn = tk.Button(form_frame, text="Scan Fingerprint", font=("Arial", 12), bg="blue", fg="white", 
-                             command=scan_fingerprint_account)
-        scan_btn.grid(row=9, column=0, padx=10, pady=10, sticky="e")
-
-        def register_account_inner():
-            first_name = entry_first_name.get().strip()
-            middle_name = entry_middle_name.get().strip()
-            last_name = entry_last_name.get().strip()
-            suffix = entry_suffix.get().strip()
-            age = entry_age.get().strip()
-            birthdate = entry_birthdate.get().strip()
-            email = entry_email.get().strip()
-            cell = entry_cell.get().strip()
-            fp_status = fingerprint_label.cget("text")
-
-            if not first_name or not last_name or not email:
-                messagebox.showerror("Input Error", "Please fill at least First Name, Last Name, and Email.")
-                return
-
-            try:
-                self.db.cursor.execute('''
-                    INSERT INTO accounts (first_name, middle_name, last_name, suffix, age, birthdate, email, cell_number, fingerprint_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (first_name, middle_name, last_name, suffix, age, birthdate, email, cell, fp_status))
-                self.db.conn.commit()
-                messagebox.showinfo("Success", "Account registered successfully!")
-
-                entry_first_name.delete(0, tk.END)
-                entry_middle_name.delete(0, tk.END)
-                entry_last_name.delete(0, tk.END)
-                entry_suffix.delete(0, tk.END)
-                entry_age.delete(0, tk.END)
-                entry_birthdate.delete(0, tk.END)
-                entry_email.delete(0, tk.END)
-                entry_cell.delete(0, tk.END)
-                fingerprint_label.config(text="Fingerprint Status: Not Scanned", fg="red")
-
-                self.show_account_screen()
-            except sqlite3.IntegrityError:
-                messagebox.showerror("Error", "An account with that Email already exists.")
-
-        register_btn = tk.Button(form_frame, text="Register", font=("Arial", 12), bg="#4682B4", fg="white",
-                                 command=register_account_inner)
-        register_btn.grid(row=9, column=1, padx=10, pady=10, sticky="w")
-
-        cancel_btn = tk.Button(self.right_frame, text="Cancel", font=("Arial", 12), bg="gray", fg="white",
-                               command=self.show_account_screen)
-        cancel_btn.pack()
-
-    def delete_account(self):
-        email_to_delete = simpledialog.askstring("Delete Account", "Enter Email of the account to delete:")
-        if not email_to_delete:
-            return
-        self.db.cursor.execute("SELECT * FROM accounts WHERE email = ?", (email_to_delete,))
-        account = self.db.cursor.fetchone()
-        if account:
-            confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete account with Email: {email_to_delete}?")
-            if confirm:
-                self.db.cursor.execute("DELETE FROM accounts WHERE email = ?", (email_to_delete,))
-                self.db.conn.commit()
-                messagebox.showinfo("Deleted", f"Account with email '{email_to_delete}' has been deleted.")
-        else:
-            messagebox.showerror("Not Found", f"No account found with email '{email_to_delete}'.")
+    def show_subjects_frame(self, section_name, course_name):
+        """Show the subjects_frame with the given section_name and course_name."""
+        print(f"Showing subjects_frame for section_name={section_name}, course_name={course_name}")  # Debug print
+        self.clear_right_frame()  # Clear the current frame
+        self.subjects_frame(section_name, course_name)  # Recreate the subjects_frame
+        self.pack(fill="both", expand=True)  # Ensure the DashboardFrame is packed and visible
 
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():
