@@ -1,6 +1,7 @@
 # attendance_list_frame.py
 import pandas as pd
 import sqlite3
+import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -30,17 +31,14 @@ class Attendance_List(tk.Frame):
         self.parent = parent
         self.section_name = section_name
         self.subject = subject
-        self.course_name = course_name  # Add course_name to know where to navigate back
-        self.dashboard_frame = dashboard_frame  # Store the DashboardFrame instance
-        self.current_professor = self.parent.current_professor  # Get the logged-in professor's username
-
-        # Debug print to confirm DashboardFrame instance
-        print(f"DashboardFrame instance in Attendance_List: {self.dashboard_frame}")
+        self.course_name = course_name
+        self.dashboard_frame = dashboard_frame
+        self.current_professor = self.parent.current_professor
 
         # Update the title label to show section name and subject
-        title_text = f"{self.section_name} \n{self.subject}" if self.section_name and self.subject else "Attendance List"
-        title_label = tk.Label(self, text=title_text, font=("Helvetica", 20, "bold"), bg="#4682B4", fg="white", width=20)
-        title_label.pack(pady=15)
+        title_text = f"{self.section_name} - {self.subject}" if self.section_name and self.subject else "Attendance List"
+        title_label = tk.Label(self, text=title_text, font=("Helvetica", 20, "bold"), bg="#4682B4", fg="white")
+        title_label.pack(pady=15, fill="x")
 
         # Create a frame for the left side buttons (Back button)
         button_frame = tk.Frame(self, bg="lightgray")
@@ -133,6 +131,7 @@ class Attendance_List(tk.Frame):
         # Load data AFTER the table is initialized
         self.load_data()
 
+    
     def on_double_click(self, event):
         """Handle double-click event on a cell to make it editable."""
         item = self.table.identify_row(event.y)  # Get the row ID
@@ -218,6 +217,7 @@ class Attendance_List(tk.Frame):
                 "Course": "course",
                 "Year Level": "year_level"
             }
+            
             if not set(required_columns.keys()).issubset(df.columns):
                 messagebox.showerror("Error", "Excel file must contain: Student Number, Name, Course, Year Level")
                 return
@@ -228,18 +228,12 @@ class Attendance_List(tk.Frame):
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
 
-            # Insert students into the students table
+            # Insert students into the students table with professor_id
             for _, row in df.iterrows():
                 cursor.execute('''
-                    INSERT OR IGNORE INTO students (student_id, name, course, year_level)
-                    VALUES (?, ?, ?, ?)
-                ''', (row["student_id"], row["name"], row["course"], row["year_level"]))
-
-                # Link the student to the current professor in the professor_students table
-                cursor.execute('''
-                    INSERT OR IGNORE INTO professor_students (professor_id, student_id)
-                    VALUES (?, ?)
-                ''', (self.current_professor, row["student_id"]))
+                    INSERT OR IGNORE INTO students (student_id, name, course, year_level, professor_id)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (row["student_id"], row["name"], row["course"], row["year_level"], self.current_professor))
 
             conn.commit()
             conn.close()
@@ -283,39 +277,36 @@ class Attendance_List(tk.Frame):
             self.load_data(query, (f"%{search_term}%", self.current_professor)) 
         else:
             self.load_data()  
-
+        
     def load_data(self, query=None, params=None):
         """Loads data from the database into the GUI table based on the provided query or all data."""
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
         if query:
-            print(f"Executing query: {query} with params: {params}") 
-            cursor.execute(query, params)  
+            cursor.execute(query, params)
         else:
-            
+            # Only load students belonging to the current professor through the professor_students table
             cursor.execute('''
-                SELECT * FROM students 
-                WHERE student_id IN (
-                    SELECT student_id FROM professor_students 
-                    WHERE professor_id = ?
-                )
+                SELECT s.student_id, s.name, s.fingerprint 
+                FROM students s
+                JOIN professor_students ps ON s.student_id = ps.student_id
+                WHERE ps.professor_id = ?
             ''', (self.current_professor,))
 
         rows = cursor.fetchall()
         conn.close()
 
-      
+        # Clear existing data
         for row in self.table.get_children():
             self.table.delete(row)
 
-        
+        # Insert new data
         for index, row in enumerate(rows):
             tag = "evenrow" if index % 2 == 0 else "oddrow"
             self.table.insert("", "end", values=row, tags=(tag,))
 
- 
-        self.table.tag_configure("evenrow", background="#F0F0F0") 
+        self.table.tag_configure("evenrow", background="#F0F0F0")
         self.table.tag_configure("oddrow", background="white")
             
     def add_records(self):
@@ -397,13 +388,26 @@ class Attendance_List(tk.Frame):
         register_btn.grid(row=9, column=1, padx=10, pady=10, sticky="w")
         
     def go_back_to_subjects(self):
-        """Navigate back to the subjects_frame in the DashboardFrame."""
+        """Navigate back to the subjects_frame in the DashboardFrame"""
         if self.dashboard_frame:
-            print(f"Navigating back to subjects_frame with section_name={self.section_name}, course_name={self.course_name}")
-            self.dashboard_frame.show_subjects_frame(self.section_name, self.course_name)
-            self.pack_forget() 
+            try:
+                # First show the dashboard frame again
+                self.dashboard_frame.pack(fill="both", expand=True)
+                
+                # Then reconstruct the subjects view
+                if hasattr(self.dashboard_frame, 'current_course') and hasattr(self.dashboard_frame, 'current_section'):
+                    self.dashboard_frame.manage_section(
+                        self.dashboard_frame.current_course,
+                        self.dashboard_frame.current_section
+                    )
+                
+                self.pack_forget()  # Hide the attendance list frame
+            except Exception as e:
+                print(f"Navigation error: {e}")
+                self.parent.show_dashboard()  # Fallback to main dashboard
         else:
-            print("DashboardFrame instance not found.") 
+            print("DashboardFrame instance not available")
+            self.parent.show_dashboard()  # Fallback to main dashboard
 
 
 create_database()
