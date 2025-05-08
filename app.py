@@ -48,7 +48,9 @@ class AMSApp(tk.Tk):
         self.login_frame.pack_forget()
         self.register_frame.pack_forget()
         
-        # Create DashboardFrame dynamically with current_professor
+        # Create new DashboardFrame with current professor's data
+        if self.dashboard_frame:
+            self.dashboard_frame.destroy()
         self.dashboard_frame = DashboardFrame(self, self.db, self.current_professor)
         self.dashboard_frame.pack(fill="both", expand=True)
     
@@ -58,9 +60,13 @@ class AMSApp(tk.Tk):
         if self.dashboard_frame:
             self.dashboard_frame.pack_forget()
 
-        # Debug print to confirm DashboardFrame instance
-        print(f"DashboardFrame instance: {self.dashboard_frame}")
-
-        # Create Attendance_List frame dynamically with section_name, subject, and course_name
-        attendance_frame = Attendance_List(self, self.db, section_name, subject, course_name, self.dashboard_frame)
-        attendance_frame.pack(fill="both", expand=True)
+        # Create new Attendance_List with current professor's data
+        self.attendance_frame = Attendance_List(
+            self, 
+            self.db, 
+            section_name, 
+            subject, 
+            course_name, 
+            self.dashboard_frame
+        )
+        self.attendance_frame.pack(fill="both", expand=True)
