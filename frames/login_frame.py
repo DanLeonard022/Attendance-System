@@ -1,5 +1,6 @@
 # frames/login_frame.py
 import tkinter as tk
+import bcrypt
 from tkinter import messagebox
 from widgets.password_toggle import PasswordToggle
 
@@ -52,10 +53,10 @@ class LoginFrame(tk.Frame):
         self.db.cursor.execute("SELECT * FROM professors WHERE username = ?", (username,))
         professor = self.db.cursor.fetchone()
 
-        if professor and professor[1] == password:
+        if professor and bcrypt.checkpw(password.encode('utf-8'), professor[1]):
             messagebox.showinfo("Success", "Login successful!")
-            self.parent.current_professor = username  # Set the current professor
-            print(f"Logged in as: {self.parent.current_professor}")  # Debug print
+            self.parent.current_professor = username
+            print(f"Logged in as: {self.parent.current_professor}")
             self.parent.show_dashboard()
         else:
             messagebox.showerror("Error", "Invalid username or password.")
