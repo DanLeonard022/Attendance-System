@@ -4,6 +4,7 @@ import sqlite3
 from tkinter import messagebox
 from widgets.password_toggle import PasswordToggle
 from widgets.fingerprint_scanner import FingerprintScanner
+import bcrypt
 
 class RegisterFrame(tk.Frame):
     def __init__(self, parent, db):
@@ -56,8 +57,11 @@ class RegisterFrame(tk.Frame):
             messagebox.showerror("Password Error", "Passwords do not match.")
             return
 
+        # Hash the password
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
         try:
-            self.db.cursor.execute("INSERT INTO professors (username, password) VALUES (?, ?)", (username, password))
+            self.db.cursor.execute("INSERT INTO professors (username, password) VALUES (?, ?)", (username, hashed_password))
             self.db.conn.commit()
             messagebox.showinfo("Success", "Professor registered successfully!")
             self.parent.show_login_frame()
