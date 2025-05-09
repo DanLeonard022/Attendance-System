@@ -4,7 +4,7 @@ import sqlite3
 from tkinter import messagebox, simpledialog, ttk
 import datetime
 from email_handler import EmailHandler
-
+from attendance import AttendanceApp
 
 class DashboardFrame(tk.Frame):
     def __init__(self, parent, db, current_professor):
@@ -15,6 +15,7 @@ class DashboardFrame(tk.Frame):
         self.current_course = None  # Track current course
         self.current_section = None
         self.current_subject = None
+        self.attendance_app = None 
         
         # Initialize EmailHandler with secure credentials
         self.email_handler = EmailHandler(
@@ -1305,30 +1306,36 @@ class DashboardFrame(tk.Frame):
         self.clear_right_frame()
         self.manage_section(course_name, section_name)
 
-    def start_attendance(self):
-        """Start attendance tracking"""
-        if not self.attendance_running:
-            self.attendance_running = True
-            messagebox.showinfo("Attendance", "Attendance tracking started")
-            # Here you would add your actual attendance tracking logic
-            # For now, we'll just update the button states
-            self.update_attendance_buttons()
+        def start_attendance(self):
+            """Start attendance tracking"""
+            if not self.attendance_app:
+                self.attendance_app = AttendanceApp(self)  # Create an instance of AttendanceApp
+                self.attendance_app.start_attendance()  # Start attendance tracking
+                messagebox.showinfo("Attendance", "Attendance tracking started")
+            else:
+                messagebox.showwarning("Warning", "Attendance is already running.")
+        def stop_attendance(self):
+            """Stop attendance tracking"""
+            if self.attendance_app:
+                self.attendance_app.stop_attendance()  # Stop attendance tracking
+                self.attendance_app = None  # Reset the attendance_app variable
+                messagebox.showinfo("Attendance", "Attendance tracking stopped")
+            else:
+                messagebox.showwarning("Warning", "No attendance tracking is running.")
+        def generate_report(self):
+            """Generate attendance report"""
+            if self.attendance_app:
+                self.attendance_app.generate_report()  # Call the generate report method
+            else:
+                messagebox.showwarning("Warning", "No attendance data available to generate report.")
+        def register_fingerprint(self):
+            """Register fingerprint for attendance"""
+            if self.attendance_app:
+                self.attendance_app.enroll_fingerprint()  # Call the enroll fingerprint method
+            else:
+                messagebox.showwarning("Warning", "No attendance session is active.")
 
-    def stop_attendance(self):
-        """Stop attendance tracking"""
-        if self.attendance_running:
-            self.attendance_running = False
-            messagebox.showinfo("Attendance", "Attendance tracking stopped")
-            # Here you would add your actual attendance stopping logic
-            # For now, we'll just update the button states
-            self.update_attendance_buttons()
-
-    def update_attendance_buttons(self):
-        """Update the state of attendance buttons based on current status"""
-        # This would be implemented to change button colors/text based on attendance state
-        pass
-
-    # Add this to dashboard_frame.py (update the show_schedule_screen method)
+        # Add this to dashboard_frame.py (update the show_schedule_screen method)
 
     def show_schedule_screen(self):
         """Show the schedule management screen with calendar view and schedule editor"""
