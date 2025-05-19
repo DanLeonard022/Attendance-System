@@ -1,3 +1,4 @@
+
 # frames/dashboard_frame.py
 import tkinter as tk
 import sqlite3
@@ -120,6 +121,14 @@ class DashboardFrame(tk.Frame):
                               bg="#e74c3c", fg="white", command=self.stop_attendance,
                               width=15)
         stop_button.pack(side="left", padx=5)
+        
+        # Add these buttons to your control_frame
+        register_button = tk.Button(button_frame, text="Register Fingerprint", font=("Arial", 12),
+                                  bg="#9b59b6", fg="white", command=self.register_fingerprint,
+                                  width=15)
+        register_button.pack(side="left", padx=5)
+
+        
 
         # Attendance records table
         table_frame = tk.Frame(self.right_frame, bg="#ecf0f1")
@@ -140,24 +149,76 @@ class DashboardFrame(tk.Frame):
         self.attendance_tree.pack(fill="both", expand=True)
 
         scrollbar.config(command=self.attendance_tree.yview)
+        
+        status_frame = tk.Frame(self.right_frame, bg="#ecf0f1")
+        status_frame.pack(fill="x", pady=5, padx=20)
+        
+        report_button = tk.Button(status_frame, text="Generate Report", font=("Arial", 12),
+                                 bg="#f39c12", fg="white", command=self.generate_report,
+                                 width=15)
+        report_button.pack(side="left", padx=5)
+        
+        self.connection_status = tk.Label(
+            status_frame, 
+            text="Online" if self.parent.firebase_sync.check_connection() else "Offline",
+            font=("Arial", 10),
+            fg="green" if self.parent.firebase_sync.check_connection() else "red"
+        )
+        self.connection_status.pack(side="right")
+        
+        # Add a refresh button
+        tk.Button(
+            status_frame,
+            text="Refresh Connection",
+            font=("Arial", 10),
+            command=self.check_connection_status
+        ).pack(side="right", padx=5)
 
         # Load sample data (replace with actual database query)
-        self.load_sample_attendance_data()
+        self.load_attendance_data_from_db()
 
-    def load_sample_attendance_data(self):
-        """Load sample attendance data into the treeview"""
-        sample_data = [
-            ("20230001", "John Doe", "08:30:00"),
-            ("20230002", "Jane Smith", "08:32:15"),
-            ("20230003", "Robert Johnson", "08:35:22"),
-            ("20230004", "Emily Davis", "08:40:10"),
-        ]
+    def check_connection_status(self):
+        """Check and update connection status"""
+        is_connected = self.parent.firebase_sync.check_connection()
+        self.connection_status.config(
+            text="Online" if is_connected else "Offline",
+            fg="green" if is_connected else "red"
+        )
+        if is_connected:
+            messagebox.showinfo("Connection", "Connected to Firebase")
+        else:
+            messagebox.showwarning("Connection", "Offline - Working locally. Data will sync when connection is restored.")
         
-        for item in self.attendance_tree.get_children():
-            self.attendance_tree.delete(item)
-            
-        for data in sample_data:
-            self.attendance_tree.insert("", "end", values=data)
+    def load_attendance_data_from_db(self):
+        """Load attendance data with proper column references"""
+        try:
+            self.db.cursor.execute('''
+                SELECT 
+                    attendance.student_id, 
+                    students.name, 
+                    attendance.time_in,
+                    attendance.course_name,
+                    attendance.section_name,
+                    attendance.subject_name
+                FROM attendance
+                JOIN students ON attendance.student_id = students.student_id
+                ORDER BY attendance.time_in DESC
+            ''')
+
+            records = self.db.cursor.fetchall()
+
+            # Clear existing table entries
+            for item in self.attendance_tree.get_children():
+                self.attendance_tree.delete(item)
+
+            # Insert records
+            for record in records:
+                self.attendance_tree.insert("", "end", values=record)
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Failed to load attendance records:\n{str(e)}")
+
+
 
     def show_records_screen(self):
         """Show the view/add records screen with course hierarchy"""
@@ -200,7 +261,7 @@ class DashboardFrame(tk.Frame):
         add_btn = tk.Button(
             header_frame,
             text="+ Add New Course",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 14, "bold"),
             bg="#28a745",
             fg="white",
             bd=0,
@@ -213,12 +274,12 @@ class DashboardFrame(tk.Frame):
         title_label = tk.Label(
             header_frame,
             text="COURSES",
-            font=("Helvetica", 20, "bold"),
+            font=("Helvetica", 25, "bold"),
             bg="#f8f9fa",
             fg="#343a40",
 
         )
-        title_label.pack(side="left", padx=50)
+        title_label.pack(side="left", padx=70)
         
         # Create scrollable frame
         canvas = tk.Canvas(self.courses_container, bg="#f8f9fa", highlightthickness=0)
@@ -258,7 +319,7 @@ class DashboardFrame(tk.Frame):
                 tk.Label(
                     empty_frame,
                     text="📚 No courses found",
-                    font=("Arial", 14),
+                    font=("Arial", 16),
                     bg="#f8f9fa",
                     fg="#6c757d"
                 ).pack()
@@ -280,12 +341,12 @@ class DashboardFrame(tk.Frame):
                     name_label = tk.Label(
                         course_frame,
                         text=course,
-                        font=("Arial", 12, "bold"),
+                        font=("Arial", 14, "bold"),
                         bg="white",
                         fg="#343a40",
                         anchor="center"
                     )
-                    name_label.pack(fill="x", pady=(0, 5))
+                    name_label.pack(fill="x", pady=(0, 5),padx=5)
                     
                     # Add clickable behavior to the name
                     name_label.bind("<Button-1>", lambda e, c=course: self.load_sections(c))
@@ -298,7 +359,7 @@ class DashboardFrame(tk.Frame):
                     view_btn = tk.Button(
                         btn_frame,
                         text="View Sections",
-                        font=("Arial", 10),
+                        font=("Arial", 12),
                         bg="#007bff",
                         fg="white",
                         bd=0,
@@ -312,7 +373,7 @@ class DashboardFrame(tk.Frame):
                     del_btn = tk.Button(
                         btn_frame,
                         text="Delete",
-                        font=("Arial", 10),
+                        font=("Arial", 12),
                         bg="#dc3545",
                         fg="white",
                         bd=0,
@@ -728,7 +789,7 @@ class DashboardFrame(tk.Frame):
                     padx=15,
                     pady=10
                 )
-                year_frame.pack(fill="x", padx=50, pady=10, ipady=5,ipadx=100)
+                year_frame.pack(fill="x", padx=70, pady=15, ipady=10,ipadx=170)
 
                 # Year level header
                 year_header = tk.Frame(year_frame, bg="white")
@@ -1305,37 +1366,79 @@ class DashboardFrame(tk.Frame):
         """Helper method to properly show the section view"""
         self.clear_right_frame()
         self.manage_section(course_name, section_name)
+    
+    # Inside the DashboardFrame class
 
-        def start_attendance(self):
-            """Start attendance tracking"""
-            if not self.attendance_app:
-                self.attendance_app = AttendanceApp(self)  # Create an instance of AttendanceApp
-                self.attendance_app.start_attendance()  # Start attendance tracking
-                messagebox.showinfo("Attendance", "Attendance tracking started")
-            else:
-                messagebox.showwarning("Warning", "Attendance is already running.")
-        def stop_attendance(self):
-            """Stop attendance tracking"""
-            if self.attendance_app:
-                self.attendance_app.stop_attendance()  # Stop attendance tracking
-                self.attendance_app = None  # Reset the attendance_app variable
-                messagebox.showinfo("Attendance", "Attendance tracking stopped")
-            else:
-                messagebox.showwarning("Warning", "No attendance tracking is running.")
-        def generate_report(self):
-            """Generate attendance report"""
-            if self.attendance_app:
-                self.attendance_app.generate_report()  # Call the generate report method
-            else:
-                messagebox.showwarning("Warning", "No attendance data available to generate report.")
-        def register_fingerprint(self):
-            """Register fingerprint for attendance"""
-            if self.attendance_app:
-                self.attendance_app.enroll_fingerprint()  # Call the enroll fingerprint method
-            else:
-                messagebox.showwarning("Warning", "No attendance session is active.")
+    def start_attendance(self):
+        """Start attendance tracking"""
+        if not self.current_course:
+            messagebox.showwarning("Warning", "Please select a course first")
+            return
+            
+        if not self.attendance_app:
+            self.attendance_app = AttendanceApp(self)
+        
+        if self.attendance_app.start_attendance():
+            messagebox.showinfo("Attendance", "Attendance tracking started")
+        else:
+            messagebox.showerror("Error", "Failed to start attendance tracking")
 
-        # Add this to dashboard_frame.py (update the show_schedule_screen method)
+    
+
+    def stop_attendance(self):
+        """Stop attendance tracking"""
+        if self.attendance_app:
+            self.attendance_app.stop_attendance()
+            messagebox.showinfo("Attendance", "Attendance tracking stopped")
+        else:
+            messagebox.showwarning("Warning", "No attendance tracking is running")
+
+
+    def generate_report(self):
+        """Generate attendance report"""
+        if not self.attendance_app:
+            messagebox.showwarning("Warning", "Attendance app not initialized")
+            return
+            
+        success, message = self.attendance_app.generate_report()
+        if success:
+            messagebox.showinfo("Report Generated", message)
+        else:
+            messagebox.showerror("Report Error", message)
+
+
+    def register_fingerprint(self):
+        """Register fingerprint for a student"""
+        if not self.attendance_app:
+            self.attendance_app = AttendanceApp(self.right_frame)
+        
+        student_id = simpledialog.askstring("Register Fingerprint", "Enter Student ID:")
+        if not student_id:
+            return
+            
+        # Check if student exists first
+        try:
+            self.db.cursor.execute("SELECT name FROM students WHERE student_id = ?", (student_id,))
+            result = self.db.cursor.fetchone()
+            
+            if result:
+                name = result[0]
+                email = simpledialog.askstring("Register Fingerprint", "Enter Student Email (optional):")
+                success, message = self.attendance_app.enroll_fingerprint(student_id, name, email)
+            else:
+                name = simpledialog.askstring("Register Fingerprint", "Enter Student Name:")
+                if not name:
+                    return
+                email = simpledialog.askstring("Register Fingerprint", "Enter Student Email (optional):")
+                success, message = self.attendance_app.enroll_fingerprint(student_id, name, email)
+                
+            if success:
+                messagebox.showinfo("Success", message)
+            else:
+                messagebox.showerror("Error", message)
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Failed to check student: {str(e)}")
 
     def show_schedule_screen(self):
         """Show the schedule management screen with calendar view and schedule editor"""
