@@ -138,14 +138,21 @@ class DashboardFrame(tk.Frame):
         scrollbar = ttk.Scrollbar(table_frame)
         scrollbar.pack(side="right", fill="y")
 
-        self.attendance_tree = ttk.Treeview(table_frame, columns=("Student ID", "Name", "Time In"), 
-                                          show="headings", yscrollcommand=scrollbar.set)
+        self.attendance_tree = ttk.Treeview(table_frame, 
+                                  columns=("Student ID", "Name", "Time In", "Course", "Section", "Subject"), 
+                                  show="headings", yscrollcommand=scrollbar.set)
         self.attendance_tree.heading("Student ID", text="Student ID")
         self.attendance_tree.heading("Name", text="Name")
         self.attendance_tree.heading("Time In", text="Time In")
-        self.attendance_tree.column("Student ID", width=120, anchor="center")
-        self.attendance_tree.column("Name", width=200, anchor="w")
-        self.attendance_tree.column("Time In", width=150, anchor="center")
+        self.attendance_tree.heading("Course", text="Course")
+        self.attendance_tree.heading("Section", text="Section")
+        self.attendance_tree.heading("Subject", text="Subject")
+        self.attendance_tree.column("Student ID", width=100, anchor="center")
+        self.attendance_tree.column("Name", width=150, anchor="w")
+        self.attendance_tree.column("Time In", width=120, anchor="center")
+        self.attendance_tree.column("Course", width=120, anchor="center")
+        self.attendance_tree.column("Section", width=100, anchor="center")
+        self.attendance_tree.column("Subject", width=150, anchor="w")
         self.attendance_tree.pack(fill="both", expand=True)
 
         scrollbar.config(command=self.attendance_tree.yview)
@@ -1370,18 +1377,80 @@ class DashboardFrame(tk.Frame):
     # Inside the DashboardFrame class
 
     def start_attendance(self):
-        """Start attendance tracking"""
-        if not self.current_course:
+        """Start attendance tracking with current course/section/subject"""
+        if not hasattr(self, 'course_var') or not self.course_var.get():
             messagebox.showwarning("Warning", "Please select a course first")
             return
             
-        if not self.attendance_app:
-            self.attendance_app = AttendanceApp(self)
+        # Get selected course, section and subject
+        selected_course = self.course_var.get()
         
-        if self.attendance_app.start_attendance():
-            messagebox.showinfo("Attendance", "Attendance tracking started")
-        else:
-            messagebox.showerror("Error", "Failed to start attendance tracking")
+        # Get sections for selected course
+        try:
+            self.db.cursor.execute(
+                "SELECT name FROM sections WHERE course_name = ? AND professor_id = ?",
+                (selected_course, self.current_professor)
+            )
+            sections = [section[0] for section in self.db.cursor.fetchall()]
+            
+            if not sections:
+                messagebox.showwarning("Warning", "No sections found for selected course")
+                return
+                
+            # Show dialog to select section
+            section = simpledialog.askstring("Select Section", 
+                                           f"Select section for {selected_course}:", 
+                                           parent=self)
+            if not section:
+                return
+                
+            if section not in sections:
+                messagebox.showwarning("Warning", "Invalid section selected")
+                return
+                
+            # Get subjects for selected section
+            self.db.cursor.execute(
+                """SELECT name FROM subjects 
+                WHERE course_name = ? AND section_name = ? AND professor_id = ?""",
+                (selected_course, section, self.current_professor)
+            )
+            subjects = [subject[0] for subject in self.db.cursor.fetchall()]
+            
+            if not subjects:
+                messagebox.showwarning("Warning", "No subjects found for selected section")
+                return
+                
+            # Show dialog to select subject
+            subject = simpledialog.askstring("Select Subject", 
+                                           f"Select subject for {section}:", 
+                                           parent=self)
+            if not subject:
+                return
+                
+            if subject not in subjects:
+                messagebox.showwarning("Warning", "Invalid subject selected")
+                return
+                
+            # Now we have all required info
+            if not self.attendance_app:
+                self.attendance_app = AttendanceApp(self)
+                
+            # Set the current course/section/subject in the attendance app
+            self.attendance_app.current_course = selected_course
+            self.attendance_app.current_section = section
+            self.attendance_app.current_subject = subject
+            
+            if self.attendance_app.start_attendance():
+                messagebox.showinfo("Attendance", 
+                                  f"Attendance tracking started for {subject}\n"
+                                  f"Section: {section}\n"
+                                  f"Present: within 10 mins\nLate: within 15 mins\n"
+                                  f"After 15 mins: Absent")
+            else:
+                messagebox.showerror("Error", "Failed to start attendance tracking")
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Failed to start attendance: {str(e)}")
 
     
 
