@@ -33,6 +33,11 @@ class AttendanceApp:
         self.attendance_running = False
         self.students = {}
         self.position_to_student_id = {}
+        self.present_threshold = 10  # minutes (considered present if within 10 mins)
+        self.late_threshold = 15
+        self.current_course = None
+        self.current_section = None
+        self.current_subject = None
 
         # Initialize DB connection
         self.db_conn = sqlite3.connect('professor_account.db', check_same_thread=False)
@@ -210,10 +215,22 @@ class AttendanceApp:
                 time.sleep(1)
     
     def _process_attendance(self, student_id):
-        """Process a successful fingerprint scan."""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Process a successful fingerprint scan with status calculation"""
+        current_time = datetime.now()
+        time_in_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
         
-        # Get student name from database
+        # Calculate minutes late
+        minutes_late = (current_time - self.attendance_start_time).total_seconds() / 60
+        
+        # Determine status
+        if minutes_late <= self.present_threshold:
+            status = "Present"
+        elif minutes_late <= self.late_threshold:
+            status = "Late"
+        else:
+            status = "Absent"
+        
+        # Get student info
         self.cursor.execute("SELECT name, email FROM students WHERE student_id = ?", (student_id,))
         student_data = self.cursor.fetchone()
         
@@ -233,35 +250,33 @@ class AttendanceApp:
         lcd.clear()
         lcd.write_string(f"ID: {student_id}")
         lcd.crlf()
-        lcd.write_string(f"Time: {current_time[-8:]}")
+        lcd.write_string(f"Status: {status}")
         
         # Save to database
-        self._save_attendance(student_id, current_time, "Present")
+        self._save_attendance(student_id, time_in_str, status)
         
-        # Send email notification if email exists
+        # Send email notification
         if student_email:
             try:
-                subject = "Attendance Recorded Successfully"
-                body = f"""Your attendance has been successfully recorded:
+                subject = f"Attendance Recorded - {status}"
+                body = f"""Your attendance has been recorded:
 
-    Student ID: {student_id}
-    Name: {student_name}
-    Time In: {current_time}
+Student ID: {student_id}
+Name: {student_name}
+Time In: {time_in_str}
+Status: {status}
 
-    Thank you!"""
+Thank you!"""
                 
-                # Send email in a separate thread to avoid blocking
                 email_thread = threading.Thread(
                     target=self.email_handler.send_email_reminder,
                     args=(student_email, subject, body),
                     daemon=True
                 )
                 email_thread.start()
-                
             except Exception as e:
                 print(f"Error sending email: {e}")
 
-        # Turn off LED after delay
         time.sleep(1)
         GPIO.output(GREEN_LED, GPIO.LOW)
     
@@ -286,8 +301,12 @@ class AttendanceApp:
                 return
 
             self.cursor.execute(
-                "INSERT INTO attendance (student_id, time_in, status, synced) VALUES (?, ?, ?, ?)",
-                (student_id, time_in, status, 0)  # Mark as unsynced (0)
+                """INSERT INTO attendance 
+                (student_id, time_in, status, synced, 
+                 course_name, section_name, subject_name) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (student_id, time_in, status, 0,
+                 self.current_course, self.current_section, self.current_subject)
             )
             self.db_conn.commit()
             
@@ -295,7 +314,8 @@ class AttendanceApp:
             if hasattr(self.parent_frame, 'attendance_tree'):
                 self.parent_frame.attendance_tree.insert(
                     "", "end", 
-                    values=(student_id, self.students.get(student_id, "Unknown"), time_in))
+                    values=(student_id, self.students.get(student_id, "Unknown"), time_in,
+                           self.current_course, self.current_section, self.current_subject))
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             self._show_error("DB Error")
