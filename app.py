@@ -5,12 +5,15 @@ from frames.register_frame import RegisterFrame
 from frames.dashboard_frame import DashboardFrame
 from frames.attendance_list_frame import Attendance_List
 from database import Database
+from firebase_sync import FirebaseSync
+
 
 class AMSApp(tk.Tk):
     def __init__(self):
+    
         super().__init__()
         self.title("AMS")
-        self.geometry("1000x700")
+        self.geometry("1200x800")
         self.resizable(False, False)
         self.configure(bg="lightgray")
 
@@ -21,8 +24,11 @@ class AMSApp(tk.Tk):
                                     bg="#4682B4", fg="white", pady=10)
         self.title_label.pack(fill=tk.X)
 
-        self.db = Database()
-        self.db.setup_database()
+        self.db = Database()  # This initializes the database and calls setup_database
+        self.db.setup_database()  # This is called in the Database constructor
+        
+        self.firebase_sync = FirebaseSync()
+        self.firebase_sync.start_sync()
 
         # Initialize frames
         self.register_frame = RegisterFrame(self, self.db)  
@@ -70,3 +76,4 @@ class AMSApp(tk.Tk):
             self.dashboard_frame
         )
         self.attendance_frame.pack(fill="both", expand=True)
+
