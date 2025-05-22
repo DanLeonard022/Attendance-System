@@ -32,3 +32,4 @@ class EmailHandler:
         except Exception as e:
             print(f"Failed to send bulk email: {e}")
             return False
+
