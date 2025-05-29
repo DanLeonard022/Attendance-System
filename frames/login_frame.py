@@ -10,37 +10,37 @@ class LoginFrame(tk.Frame):
         self.db = db
         self.parent = parent
 
-        mid_frame = tk.Frame(self, bg="lightgray", width=400, height=400, relief=tk.SUNKEN, bd=2)
-        mid_frame.pack(fill=None, expand=False, padx=50, pady=100)
+        mid_frame = tk.Frame(self, bg="lightgray", width=500, height=500, relief=tk.SUNKEN, bd=2)
+        mid_frame.pack(fill=None, expand=False, padx=50, pady=130)
         mid_frame.pack_propagate(False)
 
-        login_label = tk.Label(mid_frame, text="LOG IN", font=("Helvetica", 20, "bold"), bg="lightgray")
+        login_label = tk.Label(mid_frame, text="LOG IN", font=("Helvetica", 25, "bold"), bg="lightgray")
         login_label.pack(pady=20)
 
-        username_label_log = tk.Label(mid_frame, text="Username:", font=("Arial", 12), bg="lightgray")
+        username_label_log = tk.Label(mid_frame, text="Username:", font=("Arial", 14), bg="lightgray")
         username_label_log.pack(pady=5)
-        self.username_entry_log = tk.Entry(mid_frame, font=("Arial", 12), width=30, bd=2)
-        self.username_entry_log.pack(pady=10, ipady=5)
+        self.username_entry_log = tk.Entry(mid_frame, font=("Arial", 12), width=42, bd=2)
+        self.username_entry_log.pack(pady=10, ipady=7)
 
-        password_label_log = tk.Label(mid_frame, text="Password:", font=("Arial", 12), bg="lightgray")
+        password_label_log = tk.Label(mid_frame, text="Password:", font=("Arial", 14), bg="lightgray")
         password_label_log.pack(pady=5)
-        self.password_entry_log = tk.Entry(mid_frame, font=("Arial", 12), width=30, show="*", bd=2)
-        self.password_entry_log.pack(pady=5, ipady=5)
+        self.password_entry_log = tk.Entry(mid_frame, font=("Arial", 14), width=39, show="*", bd=2)
+        self.password_entry_log.pack(pady=7, ipady=7)
 
         self.password_toggle = PasswordToggle(mid_frame, self.password_entry_log)
 
-        login_button = tk.Button(mid_frame, text="Login", font=("Arial", 12), bg="#4682B4", fg="white", command=self.login_professor)
-        login_button.pack(pady=10, ipadx=12)
+        login_button = tk.Button(mid_frame, text="Login", font=("Arial", 14), bg="#4682B4", fg="white", command=self.login_professor)
+        login_button.pack(pady=14, ipadx=16,ipady=4)
 
         create_account_button = tk.Button(
             mid_frame,
             text="Create Account",
-            font=("Arial", 12),
+            font=("Arial", 14),
             bg="#4682B4",
             fg="white",
             command=self.parent.show_register_frame
         )
-        create_account_button.pack(pady=10)
+        create_account_button.pack(pady=14, ipadx=16, ipady=4)
 
     def login_professor(self):
         username = self.username_entry_log.get().strip()
@@ -60,3 +60,4 @@ class LoginFrame(tk.Frame):
             self.parent.show_dashboard()
         else:
             messagebox.showerror("Error", "Invalid username or password.")
+
