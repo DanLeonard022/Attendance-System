@@ -321,16 +321,15 @@ Thank you!"""
             self._show_error("DB Error")
     
     def enroll_fingerprint(self, student_id, name, email=None):
-        """Enroll a new fingerprint for a student."""
+        """Enroll a new fingerprint for a student (universal registration)"""
         if not self.finger:
             return False, "Fingerprint sensor not available"
         
         try:
-            # First check if student already exists
+            # Check if student already exists in the system
             self.cursor.execute("SELECT 1 FROM students WHERE student_id = ?", (student_id,))
-            if self.cursor.fetchone():
-                return False, "Student ID already exists in database"
-                
+            student_exists = self.cursor.fetchone()
+            
             lcd.clear()
             lcd.write_string("Place finger")
             
@@ -367,10 +366,27 @@ Thank you!"""
             
             # Save to database
             try:
-                self.cursor.execute(
-                    "INSERT INTO students (student_id, name, email, fingerprint_position) VALUES (?, ?, ?, ?)",
-                    (student_id, name, email, position)
-                )
+                if not student_exists:
+                    # Add new student if doesn't exist
+                    self.cursor.execute(
+                        "INSERT INTO students (student_id, name, email, fingerprint_position) VALUES (?, ?, ?, ?)",
+                        (student_id, name, email, position)
+                    )
+                else:
+                    # Update existing student's fingerprint
+                    self.cursor.execute(
+                        "UPDATE students SET fingerprint_position = ? WHERE student_id = ?",
+                        (position, student_id)
+                    )
+                
+                # Link student to current professor
+                if hasattr(self.parent_frame, 'current_professor'):
+                    professor_id = self.parent_frame.current_professor
+                    self.cursor.execute(
+                        "INSERT OR IGNORE INTO professor_students (professor_id, student_id) VALUES (?, ?)",
+                        (professor_id, student_id)
+                    )
+                
                 self.db_conn.commit()
                 
                 # Update in-memory records
