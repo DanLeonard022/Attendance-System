@@ -15,7 +15,17 @@ class Database:
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS professors (
                     username TEXT PRIMARY KEY,
-                    password TEXT
+                    password TEXT,
+                    name TEXT,
+                    email TEXT,
+                    department TEXT,
+                    position TEXT,
+                    phone TEXT,
+                    office TEXT,
+                    office_hours TEXT,
+                    website TEXT,
+                    linkedin TEXT,
+                    bio TEXT
                 )
             ''')
             
@@ -79,7 +89,9 @@ class Database:
                     student_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     email TEXT,
-                    fingerprint_position INTEGER
+                    fingerprint_position INTEGER,
+                    year_level TEXT,
+                    course TEXT
                 )
             ''')
 
@@ -131,6 +143,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS professor_students (
                     professor_id TEXT,
                     student_id TEXT,
+                    section_name TEXT,
                     FOREIGN KEY (professor_id) REFERENCES professors(username),
                     FOREIGN KEY (student_id) REFERENCES students(student_id),
                     PRIMARY KEY (professor_id, student_id)
